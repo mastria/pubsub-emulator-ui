@@ -5,9 +5,9 @@ This application is meant to assist in local development of software related to 
 
 1. Utilize docker to run the pubsub emulator ui
    ```
-   docker run -p 4200:80 ghcr.io/neoscript/pubsub-emulator-ui:latest
+   docker run -p 4200:80 ghcr.io/mastria/pubsub-emulator-ui:latest
    ```
-   - Note if you want to also spin up an instance of the pubsub emulator take a look at the [`docker-compose.yml`](https://github.com/NeoScript/pubsub-emulator-ui/blob/main/docker-compose.yml) file in this project's root 😉
+   - Note if you want to also spin up an instance of the pubsub emulator take a look at the [`docker-compose.yml`](https://github.com/mastria/pubsub-emulator-ui/blob/main/docker-compose.yml) file in this project's root 😉
 2. Add the project you would like to track
    ![Screenshot from 2024-02-09 09-15-28](https://github.com/NeoScript/pubsub-emulator-ui/assets/3144162/7eab63e9-361e-45f4-9d29-714e6c286bb3)
 3. Now add topics/subscribers and send/receive messages as you would like 😄
@@ -23,7 +23,7 @@ This application is meant to assist in local development of software related to 
 
 1. First Clone the repository
     ```
-    git clone https://github.com/NeoScript/pubsub-ui.git
+    git clone https://github.com/mastria/pubsub-emulator-ui.git
     ```
 2. Then open the folder with VSCode
     - vscode is not required, but I've got a .devcontainers setup that may be helpful

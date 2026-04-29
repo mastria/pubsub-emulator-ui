@@ -9,7 +9,7 @@ services:
       - PUBSUB_PROJECT1=test-project,topic1:topic1-sub,topic2:t2-s1:t2-s2
 
   emulator-ui:
-    image: ghcr.io/neoscript/pubsub-emulator-ui:latest
+    image: ghcr.io/mastria/pubsub-emulator-ui:latest
     ports:
       - "7200:80"
 
