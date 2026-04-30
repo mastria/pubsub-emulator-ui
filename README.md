@@ -13,6 +13,16 @@ A visual UI for the [Google Cloud PubSub emulator](https://cloud.google.com/pubs
 - **Ack All** — acknowledge all pulled messages in a single action.
 - **Auto-pull** — configurable polling interval that stops automatically when the subscription changes or the panel is closed.
 
+## Screenshots
+
+Add your project ID and your existing topics and subscriptions will load automatically:
+
+![Adding a project](https://github.com/NeoScript/pubsub-emulator-ui/assets/3144162/7eab63e9-361e-45f4-9d29-714e6c286bb3)
+
+Browse topics, publish messages, and inspect pulled payloads:
+
+![Topics and messages](https://github.com/NeoScript/pubsub-emulator-ui/assets/3144162/a5b6523a-30e8-4cdd-a4e6-620c58152067)
+
 ## Quickstart
 
 ```bash
