@@ -1,51 +1,70 @@
 # PubSub Emulator UI
-This application is meant to assist in local development of software related to Google Pub/Sub. This will allow one to view and create pubsub messages as well as create topics + pull subscriptions on a locally hosted instance of the pubsub emulator
+
+A visual UI for the [Google Cloud PubSub emulator](https://cloud.google.com/pubsub/docs/emulator) — manage topics and subscriptions, publish messages, inspect payloads, and visualize your project topology, all from the browser.
+
+## Features
+
+- **Topics & subscriptions** — create, delete, and browse topics and subscriptions. Existing resources are loaded automatically from the emulator when you open a project.
+- **Publisher** — publish single messages or batches, with ordering key support, named templates (saved to `localStorage`), and a publish history panel.
+- **Message inspector** — pull messages into a sortable, paginated table with JSON syntax highlighting, expandable metadata (message ID, publish time, delivery attempt, attributes), and one-click copy for payloads and IDs.
+- **Search & filters** — real-time full-text search on decoded payloads, independent attribute key/value filters, matched term highlighting, and filter state persisted per subscription.
+- **Flow graph view** — inline SVG topology showing topics and their subscriptions. Click any node to navigate to it. On-demand backlog badge per subscription (non-destructive peek).
+- **Notes** — attach a local note to any topic or subscription; indicator icons in the list rows show which resources have notes.
+- **Ack All** — acknowledge all pulled messages in a single action.
+- **Auto-pull** — configurable polling interval that stops automatically when the subscription changes or the panel is closed.
 
 ## Quickstart
 
-1. Utilize docker to run the pubsub emulator ui
-   ```
-   docker run -p 4200:80 ghcr.io/mastria/pubsub-emulator-ui:latest
-   ```
-   - Note if you want to also spin up an instance of the pubsub emulator take a look at the [`docker-compose.yml`](https://github.com/mastria/pubsub-emulator-ui/blob/main/docker-compose.yml) file in this project's root 😉
-2. Add the project you would like to track
-   ![Screenshot from 2024-02-09 09-15-28](https://github.com/NeoScript/pubsub-emulator-ui/assets/3144162/7eab63e9-361e-45f4-9d29-714e6c286bb3)
-3. Now add topics/subscribers and send/receive messages as you would like 😄
-   ![Screenshot from 2024-02-09 09-16-26](https://github.com/NeoScript/pubsub-emulator-ui/assets/3144162/a5b6523a-30e8-4cdd-a4e6-620c58152067)
+```bash
+docker run -p 4200:80 ghcr.io/mastria/pubsub-emulator-ui:latest
+```
 
-### Motivations
- - The current Google Pub/Sub emulator does not have any visual tooling
- - I hate having to communicate with the emulator strictly through code
- - An existing project ([gcp-pubsub-emulator-ui](https://github.com/echocode-io/gcp-pubsub-emulator-ui)) would allow users to pull messages, but was limited to only pulling 1 message at a time.
-   - I didn't know enough about Maven/Gradle/Java to go in and modify so I just decided to rebuild the tool and try and pick-up some new skills in the process.
+Open [http://localhost:4200](http://localhost:4200), add your project ID, and your existing topics and subscriptions will load automatically.
+
+For a full stack with the emulator included, use the [`docker-compose.yml`](https://github.com/mastria/pubsub-emulator-ui/blob/main/docker-compose.yml) at the root of this repo.
+
+### Environment variables
+
+| Variable | Description |
+|---|---|
+| `DEFAULT_PUBSUB_EMULATOR_HOST` | Sets the emulator host on startup (e.g. `http://localhost:8681`) |
+| `AUTO_ATTACH_PUBSUB_PROJECTS` | Comma-separated list of project IDs to attach automatically |
+
+```bash
+docker run -p 4200:80 \
+  -e DEFAULT_PUBSUB_EMULATOR_HOST=http://localhost:8681 \
+  -e AUTO_ATTACH_PUBSUB_PROJECTS=my-project,other-project \
+  ghcr.io/mastria/pubsub-emulator-ui:latest
+```
 
 ## Setting Up For Development
 
-1. First Clone the repository
-    ```
+1. Clone the repository
+    ```bash
     git clone https://github.com/mastria/pubsub-emulator-ui.git
+    cd pubsub-emulator-ui
     ```
-2. Then open the folder with VSCode
-    - vscode is not required, but I've got a .devcontainers setup that may be helpful
-    ```
-    cd pubsub-ui
-    code .
-    ```
-3. Reopen the workspace in a container
-    - To learn more about devcontainers check out [this link](https://code.visualstudio.com/docs/remote/containers)
-4. Spin up the supporting docker-compose file
-    - note: we are currently spinning up [this very helpful wrapper](https://github.com/marcelcorso/gcloud-pubsub-emulator) around the emulator.
-    - at some point we may try and transition to just spinning up the gcloud sdk itself (if anyone knows an easy way, tell me!)
 
-5. Start serving the angular webapp
-    ```
+2. Install dependencies and start the dev server
+    ```bash
     cd webapp
+    npm install
     npm run start
     ```
-6. You should now be able to develop and have changes trigger refreshes on the webapp!
+
+3. (Optional) Spin up the emulator via docker-compose
+    ```bash
+    docker-compose up pubsub-emulator
+    ```
+
+The app will be available at [http://localhost:4200](http://localhost:4200) with live reload.
 
 ---
-### Additional Info
-LICENSE: MIT
 
-All improvements and suggestions are welcome!
+### Motivations
+ - The Google Cloud PubSub emulator has no official visual tooling
+ - An existing project ([gcp-pubsub-emulator-ui](https://github.com/echocode-io/gcp-pubsub-emulator-ui)) was limited to pulling one message at a time with no publisher or management features
+
+---
+
+LICENSE: MIT — all improvements and suggestions are welcome!
