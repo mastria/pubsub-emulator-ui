@@ -55,3 +55,18 @@ body {
 .container {
     padding: 0 3em;
 }
+
+.snack-success .mdc-snackbar__surface {
+  background-color: #2e7d32 !important;
+  color: #ffffff !important;
+}
+.snack-success .mat-mdc-snack-bar-label,
+.snack-success .mdc-snackbar__label { color: #ffffff !important; }
+
+.snack-error .mdc-snackbar__surface {
+  background-color: #c62828 !important;
+  color: #ffffff !important;
+}
+.snack-error .mat-mdc-snack-bar-label,
+.snack-error .mdc-snackbar__label { color: #ffffff !important; }
+.snack-error .mat-mdc-button { color: #ffcdd2 !important; } /* "Dismiss" action */

@@ -2,14 +2,30 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject, EMPTY, map, Observable, ReplaySubject } from 'rxjs';
 import { NewSubscriptionRequest } from '../components/subscription-list/new-subscription-dialog/new-subscription-dialog.component';
+import { LocalStorageService } from './local-storage.service';
+
+declare global {
+  interface Window {
+    APP_CONFIG?: {
+      autoAttachPubsubProjects?: string;
+      defaultPubsubEmulatorHost?: string;
+    };
+  }
+}
+
+export function shortName(fullPath: string): string {
+  const parts = fullPath.split('/')
+  return parts[parts.length - 1]
+}
 
 @Injectable({
   providedIn: 'root'
 })
 export class PubsubService {
   private http = inject(HttpClient);
+  private ls = inject(LocalStorageService);
 
-  public _currentHost$ = new BehaviorSubject<string>("http://localhost:8681")
+  public _currentHost$ = new BehaviorSubject<string>('')
 
   private _projectList = new BehaviorSubject<string[]>([])
   private _currentProject = new ReplaySubject<string>()
@@ -23,25 +39,54 @@ export class PubsubService {
   public currentSubscription$ = this._currentSubscription.asObservable()
 
   constructor() {
-    const prevHost = localStorage.getItem("host")
-    if (prevHost) {
-      console.log('loaded previous host', prevHost)
-      this._currentHost$.next(prevHost)
+    // Resolve default host from runtime env var, falling back to localhost
+    let defaultHost = window.APP_CONFIG?.defaultPubsubEmulatorHost ?? ''
+    if (!defaultHost || defaultHost === '${DEFAULT_PUBSUB_EMULATOR_HOST}') {
+      defaultHost = 'http://localhost:8681'
+    } else if (!defaultHost.match(/^https?:\/\//)) {
+      defaultHost = `http://${defaultHost}`
     }
 
-    const prevProjects = localStorage.getItem("projects") ?? "[]"
-    const projects: string[] = JSON.parse(prevProjects) ?? []
-    this._projectList.next(projects)
+    // localStorage host (user-set via UI) takes priority over env default
+    const prevHost = this.ls.getHost();
+    if (prevHost) {
+      this._currentHost$.next(prevHost)
+    } else {
+      this._currentHost$.next(defaultHost)
+    }
+
+    const prevProjects = this.ls.getProjects();
+    const autoAttachProjects = this._getAutoAttachProjects()
+    const mergedProjects = this._mergeProjectsIdempotently(prevProjects, autoAttachProjects)
+
+    this._projectList.next(mergedProjects)
+
+    if (mergedProjects.length !== prevProjects.length) {
+      this.ls.setProjects(mergedProjects);
+    }
 
     this.currentProject$.subscribe(project =>
       this.topicList$ = this.listTopics(project)
     )
   }
 
+  private _getAutoAttachProjects(): string[] {
+    const raw = window.APP_CONFIG?.autoAttachPubsubProjects ?? ''
+    if (!raw || raw === '${AUTO_ATTACH_PUBSUB_PROJECTS}') return []
+    return raw.split(',').map(p => p.trim()).filter(p => p.length > 0)
+  }
+
+  private _mergeProjectsIdempotently(existing: string[], autoAttach: string[]): string[] {
+    const merged = [...existing]
+    for (const project of autoAttach) {
+      if (!merged.includes(project)) merged.push(project)
+    }
+    return merged
+  }
+
   setHost(hostUrl: string) {
     this._currentHost$.next(hostUrl)
-
-    localStorage.setItem("host", hostUrl)
+    this.ls.setHost(hostUrl);
   }
 
   selectProject(projectId: string) {
@@ -49,28 +94,34 @@ export class PubsubService {
   }
 
   attachProject(newProject: string) {
-    const newList = this._projectList.getValue()
-    newList.push(newProject)
-
+    const newList = [...this._projectList.getValue(), newProject]
     this._projectList.next(newList)
+    this.ls.setProjects(newList);
+  }
 
-    const jsonList = JSON.stringify(newList)
-    localStorage.setItem("projects", jsonList)
+  detachProject(projectId: string) {
+    const newList = this._projectList.getValue().filter(p => p !== projectId)
+    this._projectList.next(newList)
+    this.ls.setProjects(newList);
   }
 
   createTopic(projectId: string, topicId: string) {
     const url = `${this._currentHost$.value}/v1/projects/${projectId}/topics/${topicId}`
-
     return this.http.put<Topic>(url, {})
   }
 
+  deleteTopic(topicPath: string) {
+    const url = `${this._currentHost$.value}/v1/${topicPath}`
+    return this.http.delete(url)
+  }
+
   listTopics(projectId: string) {
-    return this.http.get<{ topics: Topic[] }>(`${this._currentHost$.value}/v1/projects/${projectId}/topics`).pipe(map(incoming => incoming?.topics || []))
+    return this.http.get<{ topics: Topic[] }>(`${this._currentHost$.value}/v1/projects/${projectId}/topics`)
+      .pipe(map(incoming => incoming?.topics || []))
   }
 
   createSubscription(projectId: string, request: NewSubscriptionRequest) {
     const url = `${this._currentHost$.value}/v1/projects/${projectId}/subscriptions/${request.name}`
-
     return this.http.put<Subscription>(url, { topic: request.topic, pushConfig: request.pushConfig })
   }
 
@@ -82,21 +133,19 @@ export class PubsubService {
   listSubscriptions(projectId: string): Observable<Subscription[]> {
     return this.http.get<{ subscriptions?: string[] }>(`${this._currentHost$.value}/v1/projects/${projectId}/subscriptions`)
       .pipe(
-        map(incoming => incoming.subscriptions), // first we pull out the subscriptions object
+        map(incoming => incoming.subscriptions),
         map(subNames => subNames ?? []),
-        map(subNames => subNames.map(name => ({ name, topic: 'undefined' } as Subscription))) // now we convert each string to a Subscription object (idk why, I think just wanted to learn rxjs mapping...)
+        map(subNames => subNames.map(name => ({ name, topic: 'undefined' } as Subscription)))
       )
   }
 
   listSubscriptionsOnTopic(topicPath: string): Observable<Subscription[]> {
-    console.log('looking up subscriptions on', topicPath)
     const url = `${this._currentHost$.value}/v1/${topicPath}/subscriptions`
-    console.log('request url', url)
     return this.http.get<{ subscriptions?: string[] }>(url)
       .pipe(
         map(incoming => incoming.subscriptions),
         map(subNames => subNames ?? []),
-        map(subNames => subNames.map(name => ({ name, topic: 'undefined' } as Subscription))) // now we convert each string to a Subscription object (idk why, I think just wanted to learn rxjs mapping...)
+        map(subNames => subNames.map(name => ({ name, topic: 'undefined' } as Subscription)))
       )
   }
 
@@ -141,7 +190,7 @@ export interface ReceivedMessage {
 }
 
 export interface PubsubMessage {
-  data: string 
+  data: string
   attributes?: { [key: string]: string }
   messageId?: string
   publishTime?: string

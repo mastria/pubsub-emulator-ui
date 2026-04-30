@@ -1,0 +1,106 @@
+@if (isLoading) {
+  <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+}
+
+@if (!isLoading && nodes.length === 0) {
+  <p class="empty-text">No topics in this project.</p>
+}
+
+@if (nodes.length > 0) {
+  <div class="graph-scroll">
+    <svg [attr.width]="svgWidth" [attr.height]="svgHeight" class="flow-svg">
+
+      @for (node of nodes; let i = $index; track node.topic.name) {
+
+        <!-- Connector lines — rendered before nodes so they appear behind -->
+        @for (sub of node.subscriptions; let j = $index; track sub.name) {
+          <line
+            [attr.x1]="topicCenterX(i)"
+            [attr.y1]="TOPIC_Y + TOPIC_H"
+            [attr.x2]="topicCenterX(i)"
+            [attr.y2]="subY(j)"
+            class="connector">
+          </line>
+        }
+
+        <!-- Topic node -->
+        <g class="topic-node" (click)="onTopicClick(node.topic)">
+          <rect
+            [attr.x]="topicCenterX(i) - TOPIC_W / 2"
+            [attr.y]="TOPIC_Y"
+            [attr.width]="TOPIC_W"
+            [attr.height]="TOPIC_H"
+            rx="8">
+          </rect>
+          <text
+            [attr.x]="topicCenterX(i)"
+            [attr.y]="TOPIC_Y + TOPIC_H / 2"
+            text-anchor="middle"
+            dominant-baseline="central">
+            {{ shortName(node.topic.name) }}
+          </text>
+        </g>
+
+        <!-- Subscription nodes -->
+        @for (sub of node.subscriptions; let j = $index; track sub.name) {
+          <g class="sub-node" (click)="onSubClick(node.topic, sub)">
+            <rect
+              [attr.x]="topicCenterX(i) - SUB_W / 2"
+              [attr.y]="subY(j)"
+              [attr.width]="SUB_W"
+              [attr.height]="SUB_H"
+              rx="18">
+            </rect>
+            <text
+              [attr.x]="topicCenterX(i)"
+              [attr.y]="subY(j) + SUB_H / 2"
+              text-anchor="middle"
+              dominant-baseline="central">
+              {{ shortName(sub.name) }}
+            </text>
+          </g>
+
+          <!-- Backlog badge at top-right corner of subscription rect -->
+          <g class="badge"
+            [class.backlog-badge]="backlogMap.has(sub.name)"
+            [class.loading-badge]="loadingBacklogSet.has(sub.name) && !backlogMap.has(sub.name)"
+            [class.refresh-badge]="!backlogMap.has(sub.name) && !loadingBacklogSet.has(sub.name)"
+            (click)="onBacklogClick($event, sub)">
+            <circle
+              [attr.cx]="topicCenterX(i) + SUB_W / 2"
+              [attr.cy]="subY(j)"
+              [attr.r]="BADGE_R">
+            </circle>
+            @if (backlogMap.has(sub.name)) {
+              <text
+                [attr.x]="topicCenterX(i) + SUB_W / 2"
+                [attr.y]="subY(j)"
+                text-anchor="middle"
+                dominant-baseline="central">
+                {{ backlogMap.get(sub.name) }}
+              </text>
+            } @else if (loadingBacklogSet.has(sub.name)) {
+              <text
+                [attr.x]="topicCenterX(i) + SUB_W / 2"
+                [attr.y]="subY(j)"
+                text-anchor="middle"
+                dominant-baseline="central">
+                …
+              </text>
+            } @else {
+              <text
+                [attr.x]="topicCenterX(i) + SUB_W / 2"
+                [attr.y]="subY(j)"
+                text-anchor="middle"
+                dominant-baseline="central">
+                ↺
+              </text>
+            }
+          </g>
+        }
+
+      }
+
+    </svg>
+  </div>
+}

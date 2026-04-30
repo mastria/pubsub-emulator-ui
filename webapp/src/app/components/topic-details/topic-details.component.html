@@ -1,20 +1,125 @@
-<div class="header">
-    <h3>Publish Message to topic: {{this.topic?.name}}</h3>
-    <button mat-stroked-button color="accent" (click)="editAttributes()">
-        Edit Attributes ({{this.attributeCount}})
-    </button>
-    @if(this.attributeCount > 0) {
-    <button mat-stroked-button color="warn" (click)="clearAttributes()">
-        Clear Attributes
-        <mat-icon>clear</mat-icon>
-    </button>
-    }
-    <button mat-raised-button color="primary" [disabled]="this.inputField.invalid" (click)="this.publishMessage()">
-        Publish Message!
-        <mat-icon>send</mat-icon>
-    </button>
-</div>
+<div class="publisher">
 
-<mat-form-field appearance="outline" class="text-field">
-    <textarea matInput [cdkTextareaAutosize]="true" cdkAutosizeMinRows="15" [formControl]="this.inputField"></textarea>
-</mat-form-field>
+  <!-- Header -->
+  <div class="pub-header">
+    <h3 class="pub-title">Publish to: <strong>{{ shortName(topic?.name ?? '') }}</strong></h3>
+    <div class="pub-actions">
+      <button mat-stroked-button (click)="editAttributes()">
+        <mat-icon>label</mat-icon>
+        Attributes ({{ attributeCount }})
+      </button>
+      @if (attributeCount > 0) {
+        <button mat-icon-button color="warn" (click)="clearAttributes()" matTooltip="Clear attributes">
+          <mat-icon>label_off</mat-icon>
+        </button>
+      }
+      <button mat-icon-button (click)="noteOpen = !noteOpen" [class.note-active]="note"
+        matTooltip="{{ note ? 'Edit note' : 'Add note' }}">
+        <mat-icon>sticky_note_2</mat-icon>
+        @if (note) { <span class="note-dot">●</span> }
+      </button>
+    </div>
+  </div>
+
+  <!-- Note -->
+  @if (noteOpen) {
+    <mat-form-field appearance="outline" class="note-field">
+      <mat-label>Note</mat-label>
+      <textarea matInput [(ngModel)]="note" (blur)="saveNote()" rows="3"
+        placeholder="Add a private note about this topic…"></textarea>
+    </mat-form-field>
+  }
+
+  <!-- Ordering key -->
+  <mat-form-field appearance="outline" class="ordering-key-field">
+    <mat-label>Ordering key (optional)</mat-label>
+    <input matInput [(ngModel)]="orderingKey" placeholder="e.g. user-123">
+  </mat-form-field>
+
+  <!-- Templates row -->
+  <div class="template-row">
+    <mat-form-field appearance="outline" class="template-select">
+      <mat-label>Load template</mat-label>
+      <mat-select [(ngModel)]="selectedTemplate" (ngModelChange)="applyTemplate($event)">
+        @for (t of templates; track t.name) {
+          <mat-option [value]="t">{{ t.name }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <button mat-stroked-button (click)="saveAsTemplate()" matTooltip="Save current payload as a template">
+      <mat-icon>bookmark_add</mat-icon>
+      Save template
+    </button>
+    @if (selectedTemplate) {
+      <button mat-icon-button color="warn" (click)="deleteTemplate(selectedTemplate)" matTooltip="Delete selected template">
+        <mat-icon>delete_outline</mat-icon>
+      </button>
+    }
+  </div>
+
+  <!-- Payload textarea -->
+  <mat-form-field appearance="outline" class="text-field">
+    <mat-label>Message payload</mat-label>
+    <textarea matInput [cdkTextareaAutosize]="true" cdkAutosizeMinRows="8"
+      [formControl]="payloadControl" placeholder='{"key": "value"}'></textarea>
+  </mat-form-field>
+
+  <!-- Publish actions -->
+  <div class="publish-actions">
+    <button mat-stroked-button (click)="addToQueue()" [disabled]="payloadControl.invalid" matTooltip="Add to batch queue">
+      <mat-icon>playlist_add</mat-icon>
+      Add to queue ({{ batchQueue.length }})
+    </button>
+    <button mat-stroked-button color="accent" (click)="publishQueue()"
+      [disabled]="batchQueue.length === 0" matTooltip="Publish all queued messages at once">
+      <mat-icon>send</mat-icon>
+      Publish queue ({{ batchQueue.length }})
+    </button>
+    <span class="spacer"></span>
+    <button mat-raised-button color="primary" [disabled]="payloadControl.invalid" (click)="publishNow()">
+      <mat-icon>send</mat-icon>
+      Publish now
+    </button>
+  </div>
+
+  <!-- Batch queue -->
+  @if (batchQueue.length > 0) {
+    <div class="queue-panel">
+      <div class="queue-header">
+        <span>Batch queue ({{ batchQueue.length }})</span>
+        <button mat-button color="warn" (click)="clearQueue()">Clear all</button>
+      </div>
+      @for (msg of batchQueue; track $index; let i = $index) {
+        <div class="queue-item">
+          <span class="queue-preview">{{ msg.payload | slice:0:60 }}{{ msg.payload.length > 60 ? '…' : '' }}</span>
+          @if (msg.orderingKey) {
+            <span class="queue-key">key: {{ msg.orderingKey }}</span>
+          }
+          <button mat-icon-button (click)="removeFromQueue(i)" matTooltip="Remove">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- Publish history -->
+  @if (history.length > 0) {
+    <div class="history-panel">
+      <button class="history-toggle" mat-button (click)="historyExpanded = !historyExpanded">
+        <mat-icon>{{ historyExpanded ? 'expand_less' : 'expand_more' }}</mat-icon>
+        Publish history ({{ history.length }})
+      </button>
+      @if (historyExpanded) {
+        @for (entry of history; track entry.timestamp) {
+          <div class="history-item">
+            <span class="history-time">{{ entry.timestamp | date:'HH:mm:ss' }}</span>
+            <span class="history-preview">{{ entry.preview }}{{ entry.preview.length >= 80 ? '…' : '' }}</span>
+            <span class="history-ids">ID{{ entry.messageIds.length > 1 ? 's' : '' }}: {{ entry.messageIds.join(', ') }}</span>
+          </div>
+        }
+      }
+    </div>
+  }
+
+</div>

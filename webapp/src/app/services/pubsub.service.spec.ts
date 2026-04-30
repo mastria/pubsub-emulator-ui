@@ -1,7 +1,22 @@
-import { HttpClient } from '@angular/common/http';
-import { Injectable, inject } from '@angular/core';
-import { BehaviorSubject, EMPTY, map, Observable, ReplaySubject } from 'rxjs';
-import { NewSubscriptionRequest } from '../components/subscription-list/new-subscription-dialog/new-subscription-dialog.component';
+import { TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { PubsubService } from './pubsub.service';
+
+describe('PubsubService', () => {
+  let service: PubsubService;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()]
+    });
+    service = TestBed.inject(PubsubService);
+  });
+
+  it('should be created', () => {
+    expect(service).toBeTruthy();
+  });
+});
 
 // Declare window.APP_CONFIG for runtime configuration
 declare global {

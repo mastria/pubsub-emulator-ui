@@ -4,37 +4,189 @@
   <div class="header">
     <div id="path">path: {{subscription.name}}</div>
     <div id="topic">topic: {{subscription.topic}}</div>
-    <button id="pullMessagesBtn" mat-raised-button color="primary" (click)="this.pullMessages()">
-      Pull Messages
+  </div>
+
+  <div class="pull-controls">
+    <mat-form-field appearance="outline" class="max-messages-field">
+      <mat-label>Max messages</mat-label>
+      <input matInput type="number" [(ngModel)]="maxMessages" min="1" max="1000">
+    </mat-form-field>
+    <button mat-raised-button color="primary" (click)="pullMessages()" [disabled]="isLoading">
+      Pull
       <mat-icon matSuffix>download</mat-icon>
     </button>
+    <button mat-stroked-button color="warn" (click)="ackAll()" [disabled]="dataSource.data.length === 0 || isLoading">
+      Ack All
+      <mat-icon matSuffix>done_all</mat-icon>
+    </button>
+    <div class="autopull-controls">
+      <mat-slide-toggle [(ngModel)]="autopullEnabled" (change)="toggleAutoPull()" color="primary">
+        Auto-pull
+      </mat-slide-toggle>
+      @if (autopullEnabled) {
+        <mat-form-field appearance="outline" class="interval-field">
+          <mat-label>Every (s)</mat-label>
+          <input matInput type="number" [(ngModel)]="autopullInterval" min="1" max="60">
+        </mat-form-field>
+      }
+    </div>
   </div>
+
+  <div class="filter-toggle-row">
+    <button mat-stroked-button (click)="filtersOpen = !filtersOpen">
+      <mat-icon>filter_list</mat-icon>
+      Filters
+      @if (activeFilterCount > 0) {
+        <span class="filter-badge">({{ activeFilterCount }})</span>
+      }
+    </button>
+    <button mat-icon-button (click)="noteOpen = !noteOpen" [class.note-active]="note"
+      matTooltip="{{ note ? 'Edit note' : 'Add note' }}">
+      <mat-icon>sticky_note_2</mat-icon>
+      @if (note) { <span class="note-dot">●</span> }
+    </button>
+  </div>
+
+  @if (noteOpen) {
+    <mat-form-field appearance="outline" class="note-field">
+      <mat-label>Note</mat-label>
+      <textarea matInput [(ngModel)]="note" (blur)="saveNote()" rows="3"
+        placeholder="Add a private note about this subscription…"></textarea>
+    </mat-form-field>
+  }
+
+  @if (filtersOpen) {
+    <div class="filter-bar">
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Search payload…</mat-label>
+        <input matInput [(ngModel)]="searchText" (ngModelChange)="applyFilters()" autocomplete="off">
+        <mat-icon matSuffix>search</mat-icon>
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Attribute key…</mat-label>
+        <input matInput [(ngModel)]="filterAttrKey" (ngModelChange)="applyFilters()" autocomplete="off">
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Attribute value…</mat-label>
+        <input matInput [(ngModel)]="filterAttrValue" (ngModelChange)="applyFilters()" autocomplete="off">
+      </mat-form-field>
+      <button mat-icon-button matTooltip="Clear filters" [disabled]="activeFilterCount === 0" (click)="clearFilters()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+  }
+
+  @if (isLoading) {
+    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+  }
+
   <div class="message-pane">
-    <div>Messages Received: {{this.messages.length}}</div>
-    @if (this.messages) {
-    <table class="message-table mat-table">
-      <thead>
-        <tr>
-          <th>Timestamp</th>
-          <th>Message</th>
-          <th>Attributes</th>
-          <th>Ack</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (msg of this.messages; track msg) {
-        <tr class="pubsub-message">
-          <td>{{msg.message.publishTime | date : "long"}}</td>
-          <td>{{msg.message.data}}</td>
-          <td>{{msg.message.attributes | json}}</td>
-          <td>
-            <button mat-button color="warn" (click)="this.ackMessage(msg.ackId)">Ack</button>
-          </td>
-        </tr>
-        }
-      </tbody>
+    <div class="message-count">Messages: {{ dataSource.data.length }}</div>
+
+    <table mat-table [dataSource]="dataSource" matSort multiTemplateDataRows class="message-table">
+
+      <!-- Expand column -->
+      <ng-container matColumnDef="expand">
+        <th mat-header-cell *matHeaderCellDef></th>
+        <td mat-cell *matCellDef="let row">
+          <button mat-icon-button (click)="toggleExpand(row); $event.stopPropagation()"
+            matTooltip="{{ expandedMessage === row ? 'Collapse' : 'Expand metadata' }}">
+            <mat-icon>{{ expandedMessage === row ? 'expand_less' : 'expand_more' }}</mat-icon>
+          </button>
+        </td>
+      </ng-container>
+
+      <!-- Timestamp column -->
+      <ng-container matColumnDef="publishTime">
+        <th mat-header-cell *matHeaderCellDef mat-sort-header>Timestamp</th>
+        <td mat-cell *matCellDef="let row">{{ row.message.publishTime | date:'short' }}</td>
+      </ng-container>
+
+      <!-- Payload column -->
+      <ng-container matColumnDef="payload">
+        <th mat-header-cell *matHeaderCellDef>Payload</th>
+        <td mat-cell *matCellDef="let row" class="payload-cell">
+          <pre class="json-pre" [innerHTML]="row.message.data | jsonHighlight : searchText"></pre>
+          <button mat-icon-button class="copy-btn" (click)="copyToClipboard(row.message.data); $event.stopPropagation()"
+            matTooltip="Copy payload">
+            <mat-icon>content_copy</mat-icon>
+          </button>
+        </td>
+      </ng-container>
+
+      <!-- Ack column -->
+      <ng-container matColumnDef="ack">
+        <th mat-header-cell *matHeaderCellDef></th>
+        <td mat-cell *matCellDef="let row">
+          <button mat-stroked-button color="warn" (click)="ackMessage(row.ackId); $event.stopPropagation()">
+            Ack
+          </button>
+        </td>
+      </ng-container>
+
+      <!-- Expanded detail row -->
+      <ng-container matColumnDef="expandedDetail">
+        <td mat-cell *matCellDef="let row" [attr.colspan]="displayedColumns.length">
+          <div class="detail-content" [class.detail-content--expanded]="expandedMessage === row">
+            <div class="detail-grid">
+              <div class="detail-item">
+                <span class="detail-label">Message ID</span>
+                <span class="detail-value">
+                  {{ row.message.messageId }}
+                  <button mat-icon-button class="copy-btn-sm"
+                    (click)="copyToClipboard(row.message.messageId ?? '')"
+                    matTooltip="Copy message ID">
+                    <mat-icon>content_copy</mat-icon>
+                  </button>
+                </span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Published</span>
+                <span class="detail-value">{{ row.message.publishTime | date:'long' }}</span>
+              </div>
+              @if (row.message.orderingKey) {
+                <div class="detail-item">
+                  <span class="detail-label">Ordering key</span>
+                  <span class="detail-value">{{ row.message.orderingKey }}</span>
+                </div>
+              }
+              @if (row.deliveryAttempt) {
+                <div class="detail-item">
+                  <span class="detail-label">Delivery attempt</span>
+                  <span class="detail-value">{{ row.deliveryAttempt }}</span>
+                </div>
+              }
+              @if (row.message.attributes && (row.message.attributes | keyvalue).length > 0) {
+                <div class="detail-item detail-item--full">
+                  <span class="detail-label">Attributes</span>
+                  <div class="detail-attributes">
+                    @for (attr of row.message.attributes | keyvalue; track attr.key) {
+                      <span class="attr-chip"><strong>{{ attr.key }}</strong>: {{ attr.value }}</span>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;"
+        class="message-row"
+        [class.message-row--expanded]="expandedMessage === row"
+        (click)="toggleExpand(row)">
+      </tr>
+      <tr mat-row *matRowDef="let row; columns: ['expandedDetail']" class="detail-row"></tr>
+      <tr class="no-data-row" *matNoDataRow>
+        <td [attr.colspan]="displayedColumns.length">No messages match the current filters.</td>
+      </tr>
+
     </table>
-    }
+
+    <mat-paginator [pageSizeOptions]="[5, 10, 25, 50]" showFirstLastButtons
+      aria-label="Select page of messages">
+    </mat-paginator>
   </div>
 </div>
 }

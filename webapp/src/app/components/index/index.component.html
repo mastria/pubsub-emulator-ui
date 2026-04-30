@@ -7,10 +7,16 @@
   <div class="project-list">
 
     @for (project of (this.projectList$|async); track project) {
-      <button mat-raised-button class="project"
-        [routerLink]="['project']" [queryParams]="{'project': project}">
-        {{project}}
-      </button>
+      <div class="project-wrapper">
+        <button mat-raised-button class="project"
+          [routerLink]="['project']" [queryParams]="{'project': project}">
+          {{project}}
+        </button>
+        <button mat-icon-button class="project-remove" color="warn"
+          (click)="removeProject(project)" matTooltip="Detach project">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
     }
 
     <button mat-stroked-button class="new-project" (click)="addNewProject()">

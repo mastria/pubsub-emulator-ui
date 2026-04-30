@@ -1,26 +1,26 @@
-<mat-action-list class="subscription-list">
+<mat-list class="subscription-list">
 
   @if (this.subscriptions) {
     @for (subscription of this.subscriptions; track subscription) {
-      <button mat-list-item class="item"
-        [ngClass]="{'item--selected': this.currentSubscription == subscription}"
+      <mat-list-item class="item"
+        [class.item--selected]="currentSubscription?.name === subscription.name"
         (click)="selectSubscription(subscription)">
-        <div class="subscription-button">
-          <span> {{subscription.name}}
-          </span>
-          <mat-icon>arrow_right</mat-icon>
-        </div>
-      </button>
+        <span matListItemTitle>{{ shortName(subscription.name) }}</span>
+        @if (ls.getSubNote(subscription.name)) {
+          <mat-icon matListItemMeta class="note-indicator" matTooltip="Has local note">sticky_note_2</mat-icon>
+        }
+        <button matListItemMeta mat-icon-button color="warn"
+          (click)="$event.stopPropagation(); deleteSubscriptionRequest.emit(subscription)"
+          matTooltip="Delete subscription">
+          <mat-icon>delete_outline</mat-icon>
+        </button>
+      </mat-list-item>
     }
   }
 
+  <mat-list-item class="item" (click)="newSubscription()">
+    <span matListItemTitle>Create New Subscription</span>
+    <mat-icon matListItemMeta>add</mat-icon>
+  </mat-list-item>
 
-  <button mat-list-item class="item" (click)="newSubscription()">
-
-    <div class="subscription-button">
-      <span>Create New Subscription</span>
-      <mat-icon>add</mat-icon>
-    </div>
-
-  </button>
-</mat-action-list>
+</mat-list>
